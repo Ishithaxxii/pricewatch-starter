@@ -52,20 +52,48 @@ def extract_corner(client: Client, store: str, url: str, html: str) -> Observati
 
 
 # --------------------------------------------------------------------------- level 2
+# @adapter("maple")
+# def extract_maple(client: Client, store: str, url: str, html: str) -> Observation:
+#     soup = BeautifulSoup(html, "html.parser")
+#     name = soup.select_one(".product__title").get_text(strip=True)
+#     price_el = soup.select_one(".price .price")  # first price element in the price block
+#     price_cents, currency = parse_money(price_el.get_text(" ", strip=True), "EUR")
+#     compare_el = soup.select_one(".price--compare")
+#     compare, _ = parse_money(compare_el.get_text(" ", strip=True), currency) if compare_el else (None, None)
+#     avail = "out_of_stock" if "Sold out" in soup.get_text() else "in_stock"
+#     return Observation(
+#         store=store, product_id=_pid_from_url(url), url=url, name=name,
+#         price_cents=price_cents, currency=currency or "EUR", compare_at_cents=compare, availability=avail,
+#     )
+
+# Kept here, not in normalizer.parse_money, so the existing US-format behaviour
+# (and its tests) stay untouched. Only Maple prints European-style prices.
+def _eu_price(text: str):
+
+    return parse_money(text.replace(".", "").replace(",", "."), "EUR")
+
 @adapter("maple")
 def extract_maple(client: Client, store: str, url: str, html: str) -> Observation:
     soup = BeautifulSoup(html, "html.parser")
     name = soup.select_one(".product__title").get_text(strip=True)
-    price_el = soup.select_one(".price .price")  # first price element in the price block
-    price_cents, currency = parse_money(price_el.get_text(" ", strip=True), "EUR")
+
+    # Prefer the sale price; otherwise the regular price.
+    price_el = soup.select_one(".price--sale")
+    if price_el is None:
+        price_el = soup.select_one(".price .price:not(.price--compare)")
+    if price_el is None:
+        price_el = soup.select_one(".price")
+    price_cents, currency = _eu_price(price_el.get_text(" ", strip=True))
+
     compare_el = soup.select_one(".price--compare")
-    compare, _ = parse_money(compare_el.get_text(" ", strip=True), currency) if compare_el else (None, None)
+    compare = _eu_price(compare_el.get_text(" ", strip=True))[0] if compare_el else None
+
     avail = "out_of_stock" if "Sold out" in soup.get_text() else "in_stock"
     return Observation(
         store=store, product_id=_pid_from_url(url), url=url, name=name,
-        price_cents=price_cents, currency=currency or "EUR", compare_at_cents=compare, availability=avail,
+        price_cents=price_cents, currency=currency,
+        compare_at_cents=compare, availability=avail,
     )
-
 
 # --------------------------------------------------------------------------- level 3
 # Class names used by Zon's product page template.
