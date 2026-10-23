@@ -24,4 +24,10 @@ def test_drop_pct_message_percentage():
     alerts = evaluate([obs(10000, "2026-09-01T00:00:00")], [obs(8000, "2026-09-02T00:00:00")], [{"type": "drop_pct", "pct": 10}])
     assert "20.0% drop" in alerts[0].message
 
-
+def test_drop_below_threshold_does_not_fire():
+    alerts = evaluate(
+        [obs(10000, "2026-09-01T00:00:00")],
+        [obs(8000, "2026-09-02T00:00:00")],
+        [{"type": "drop_pct", "pct": 22}],
+    )
+    assert alerts == []
