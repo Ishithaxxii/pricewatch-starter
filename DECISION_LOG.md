@@ -1,87 +1,56 @@
 ﻿---
 # Machine-read by the autograder. Keep the keys; fill in the values.
 name: "Ishitha Sankarabhukta"
-median_basis: "daily_close"        # the median your below_median rule computes: "observations" or "daily_close"
-levels_attempted: [1, 2]    # e.g. [1, 2, 3, 4, 5]
-llm_provider: "openai"        # e.g. "openai", "anthropic", "gemini"
+median_basis: "daily_close"
+levels_attempted: [1, 2]
+llm_provider: "openai"
 llm_model: "gpt-4o-mini"
-ai_tools_used: ["Claude","ChatGPT"]       # e.g. ["Claude Code", "Cursor", "ChatGPT"]
+ai_tools_used: ["ChatGPT", "Claude"]
 hours_spent: 10
 ---
 
 # Decision log
 
-Keep this to one page. Bullet points are fine. We read this before we read your code.
+## Stage 1 — False price-drop alerts
 
-## Stage 1 â€” the false alerts
+- Fixed the drop percentage calculation to use the previous price as the baseline.
+- Added tests to check the percentage and make sure drops below the configured threshold do not trigger alerts.
+- Fixed Maple extraction to choose the sale price instead of the comparison price and handle European number formatting.
+- The focused watcher, Maple extractor, and normalizer tests passed (9 tests).
 
-- Corrected the drop percentage calculation to divide by the previous
-  price rather than the current price.
+## Stage 2 — Below-median alerts
 
-- Added regression coverage for the displayed percentage and for a
-  price drop below the configured threshold.
+- Used the latest valid price for each day to calculate the median, excluding the current observation.
+- Required at least three valid daily closing prices. Ignored missing prices and skipped alerts when currencies did not match.
+- Kept `below_median` as the higher-priority rule when both alert rules could apply, so each product gets at most one alert.
+- Added tests for history length, missing prices, thresholds, time windows, same-day observations, currency mismatches, and rule priority.
+- The full test suite passed: 24 tests.
 
-- Fixed Maple extraction to prefer the sale price over the comparison
-  price and normalize European decimal formatting before parsing.
+## Levels 3-5 - how you got in
 
-- Verified the focused watcher, Maple extractor, and normalizer tests: 9 passed.
+- Checked levels 1 and 2 against the mock store's grader-truth data. The scan returned 46 products, and all 22 products in the truth data matched by URL for the fields checked.
+- I have not fully verified levels 3–5 yet.
 
-## Stage 2 â€” the median
+## Stage 3 — LLM evaluation
 
-- Computed the median using all valid past prices within the given time period (default 30 days), without including the current price observation.
+- Ran `gpt-4o-mini` on all 90 saved snapshots.
+- Accuracy was 57.8% for exact price, 85.6% for currency, 93.3% for availability, and 92.2% for pack size.
+- Exact price extraction was the main weakness, especially on Bazaario (35.6%).
+- The run had no timeouts, malformed outputs, or provider errors.
+- The report shows 0% baseline price accuracy, which I still need to check against the rule-based extractor. Token usage was recorded, but the USD cost estimate is not calculated yet.
+- `label_issues.json` is empty because I have not confirmed any mislabeled examples.
 
-- Require at least three prior observations with non-null prices before evaluating the rule i.e, calculating the median.
+## How I used AI
 
-- Ignore observations with missing prices; skip the median alert if currencies differ within the window or from the current observation.
+I used ChatGPT and Claude to help debug issues, write tests, and build the evaluation harness.
+Sometimes their suggestions didn't fully match what the task required, so I had to review them and make changes. I ran the code and tests locally. The evaluation showed that exact price extraction still needs work, especially for Bazaario.
 
-- Triggered an alert when the current price is at or below the required percentage below the median.
+I had a few issues along the way, the LLMs deviated at few tasks.
 
-- Gave below_median priority over drop_pct and send only one alert per product.
+## What I would improve next
 
-- Added tests for minimum no.of ocervations(history), missing prices, price threshold (cutoff), time-window filtering, multiple observations on the same day, currency mismatches, and alert/rule priority.
-
-- Verified the full test suite: 19 passed.
-
-## Levels 3â€“5 â€” how you got in
-
-<!-- Per level: what the store does, how your agent handles it, what you chose not to do (and why). -->
-
-## Stage 3 â€” what the model got wrong
-
-- Ran the OpenAI gpt-4o-mini evaluation against all 90 saved snapshots.
-
-- Exact price accuracy was 57.8%; currency accuracy was 85.6%, availability accuracy was 93.3%, and pack-size accuracy was 92.2%.
-
-- Price extraction was the main weakness, particularly on Bazaario, where exact price accuracy was 35.6%.
-
-- The run completed with zero timeouts, malformed outputs, or provider errors.
-
-- The baseline price accuracy was reported as 0%. I would verify this baseline against the rule-based extractor before drawing conclusions.
-
-- label_issues.json is currently empty. I have not established any mislabeled examples yet, so I will not invent label issues.
-
-- The report's USD cost estimate is currently null; token usage was recorded, but the cost calculation still needs improvement.
-
-## Where AI helped and where it didn't
-
-I used ChatGPT and Claude to help investigate bugs, develop regression tests, and implement the evaluation harness.
-
-I ran the code and tests locally to check the results.
-
-The assistant's suggestions were useful for debugging, but the measured evaluation results exposed weak price extraction that needs further investigation.
-
-## If I had another day
-
-Inspect incorrect price predictions and improve extraction of sale prices, localized number formats, and pack pricing.
-
-Verify the baseline extractor and implement a defensible cost estimate.
-
-Review candidate label issues against the original HTML.
-
-Verify extraction levels 1â€“5 and the watch command against the supplied stores.
-
-Test the Anthropic provider with the grader's injected key and model configuration.
-
-
-
-
+- Review incorrect price predictions and improve sale-price, localized-number, and pack-size extraction.
+- Check the baseline result and add a reliable cost estimate.
+- Review possible label issues against the original HTML.
+- Test extraction levels 3–5 and the watch command more thoroughly.
+- Test the Anthropic provider with the grader's configured key and model.
