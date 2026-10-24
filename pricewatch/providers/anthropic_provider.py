@@ -30,4 +30,9 @@ class AnthropicProvider:
             raise ProviderTimeout(str(e)) from e
         except anthropic.AnthropicError as e:
             raise ProviderError(str(e)) from e
+
+        self.last_usage = {
+            "input_tokens": r.usage.input_tokens if r.usage else 0,
+            "output_tokens": r.usage.output_tokens if r.usage else 0,
+        }
         return "".join(getattr(b, "text", "") for b in r.content)

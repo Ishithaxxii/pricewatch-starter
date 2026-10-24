@@ -6,3 +6,5 @@ __pycache__/
 !fixtures/*.jsonl
 eval/out/cache/
 .env
+
+.pricewatch_cache/

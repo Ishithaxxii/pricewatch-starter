@@ -170,17 +170,22 @@ def test_below_median_counts_multiple_observations_on_same_day():
         obs(10000, "2026-10-01T08:00:00"),
         obs(12000, "2026-10-01T12:00:00"),
         obs(11000, "2026-10-01T18:00:00"),
+        obs(10000, "2026-10-02T18:00:00"),
+        obs(10000, "2026-10-03T18:00:00"),
     ]
 
     alerts = evaluate(
         history,
-        [obs(8000, "2026-10-02T00:00:00")],
+        [obs(8000, "2026-10-04T00:00:00")],
         [{"type": "below_median", "pct": 15, "window_days": 30}],
     )
 
+    # Oct 1 closing price is 11000, not all three Oct 1 observations.
+    # The three daily closes are 11000, 10000, and 10000.
+    # Median = 10000; 8000 is 20% below the median.
     assert len(alerts) == 1
     assert alerts[0].rule == "below_median"
-
+    assert alerts[0].previous_cents == 10000
 
 def test_only_one_alert_per_product():
     history = [

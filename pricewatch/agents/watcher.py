@@ -54,15 +54,30 @@ def rule_below_median(
     current_time = datetime.fromisoformat(cur.observed_at) #converts the timestamp string into a date/time object
     window_start = current_time - timedelta(days=window_days) # calculates the beginning of the 30-day lookback period.
     
-    window = []
+    # Keep only observations inside the lookback window.
+    # For each calendar day, use the last valid price observation.
+    daily_closes: dict[str, Observation] = {}
+
     for obs in prior:
         observed_time = datetime.fromisoformat(obs.observed_at)
 
-        if window_start <= observed_time < current_time:  
-            if obs.price_cents is not None: #ignores missing prices
-                window.append(obs)
+        if not (window_start <= observed_time < current_time):
+            continue
+        if obs.price_cents is None:
+            continue
 
-    if len(window) < 3:  #To check if we have minimum 3 observations
+        day = observed_time.date().isoformat()
+        previous_close = daily_closes.get(day)
+
+        if (
+            previous_close is None
+            or obs.observed_at > previous_close.observed_at
+        ):
+            daily_closes[day] = obs
+
+    window = list(daily_closes.values())
+
+    if len(window) < 3:
         return None
 
     

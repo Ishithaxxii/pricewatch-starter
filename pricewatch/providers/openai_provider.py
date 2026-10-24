@@ -29,5 +29,17 @@ class OpenAIProvider:
         except openai.APITimeoutError as e:
             raise ProviderTimeout(str(e)) from e
         except openai.OpenAIError as e:
-            raise ProviderError(str(e)) from e
+            response = getattr(e, "response", None)
+            details = getattr(e, "body", None)
+            if not details and response is not None: 
+                details = response.text
+            raise ProviderError(
+                f"{type(e).__name__}: {e}; details={details}"
+            ) from e
+
+        self.last_usage = {
+            "input_tokens": r.usage.prompt_tokens if r.usage else 0,
+            "output_tokens": r.usage.completion_tokens if r.usage else 0,
+        }
+        
         return r.choices[0].message.content or ""
