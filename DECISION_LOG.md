@@ -25,7 +25,19 @@ Keep this to one page. Bullet points are fine. We read this before we read your 
 
 ## Stage 2 — the median
 
-<!-- How is the median computed, and why? What did you decide about edge cases? -->
+- Computed the median using all valid past prices within the given time period (default 30 days), without including the current price observation.
+
+- Require at least three prior observations with non-null prices before evaluating the rule i.e, calculating the median.
+
+- Ignore observations with missing prices; skip the median alert if currencies differ within the window or from the current observation.
+
+- Triggered an alert when the current price is at or below the required percentage below the median.
+
+- Gave below_median priority over drop_pct and send only one alert per product.
+
+Added tests for minimum no.of ocervations(history), missing prices, price threshold (cutoff), time-window filtering, multiple observations on the same day, currency mismatches, and alert/rule priority.
+
+Verified the full test suite: 19 passed.
 
 ## Levels 3–5 — how you got in
 
