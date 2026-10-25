@@ -17,6 +17,21 @@ import yaml
 from .http import Client
 from .agents.extractor import ADAPTERS, extract
 
+import hashlib
+from .models import Observation
+
+
+def estimate_cost_usd(provider_name, model, input_tokens, output_tokens):
+    if provider_name == "openai" and model.startswith("gpt-4o-mini"):
+        input_rate, output_rate = 0.15, 0.60
+    elif provider_name == "anthropic" and model.startswith("claude-haiku-4-5"):
+        input_rate, output_rate = 1.00, 5.00
+    else:
+        return None
+
+    cost = (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
+    return round(cost, 6)
+
 def run(provider: Provider, snapshots_dir: str | Path, labels_path: str | Path, out_dir: str | Path) -> dict:
     snapshots_dir, out_dir = Path(snapshots_dir), Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -50,7 +65,7 @@ def run(provider: Provider, snapshots_dir: str | Path, labels_path: str | Path, 
 
     results = []
     errors = {"timeout": 0, "malformed_output": 0, "provider_error": 0}
-    total_input_tokens = 0   #running totals across all evaluated snapshots so 
+    total_input_tokens = 0   #running totals across all evaluated snapshots so
     total_output_tokens = 0       #report.json can show the total input and output tokens used.
     t0 = time.time()
     latencies = []
@@ -59,10 +74,32 @@ def run(provider: Provider, snapshots_dir: str | Path, labels_path: str | Path, 
         item_start = time.perf_counter()
         try:
             html = (snapshots_dir / row["file"]).read_text(encoding="utf-8")
-            obs = extract_with_llm(provider, row["store"], row["url"], html)
-            usage = getattr(provider, "last_usage", {})
+
+            cache_dir = out_dir / "cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+            cache_key = hashlib.sha256(
+                f"{provider.name}|{getattr(provider, 'model', 'unknown')}|{row['url']}|{html}".encode("utf-8")
+            ).hexdigest()
+            cache_file = cache_dir / f"{cache_key}.json"
+
+            usage = {}
+
+            if cache_file.exists():
+                obs = Observation.from_dict(
+                    json.loads(cache_file.read_text(encoding="utf-8"))
+                )
+            else:
+                obs = extract_with_llm(provider, row["store"], row["url"], html)
+                usage = getattr(provider, "last_usage", {})
+                cache_file.write_text(
+                    json.dumps(obs.to_dict(), indent=2),
+                    encoding="utf-8",
+                )
+
             total_input_tokens += usage.get("input_tokens", 0)
             total_output_tokens += usage.get("output_tokens", 0)
+
             exp = row["expected"]
             # results.append({
             #     "id": snap_id,
@@ -77,7 +114,7 @@ def run(provider: Provider, snapshots_dir: str | Path, labels_path: str | Path, 
                 "availability": obs.availability == exp["availability"],  #checks whether the product is in stock or out of stock as expected.
                 "pack_size": obs.pack_size == exp["pack_size"],   #checks the number of items in the pack.
                 "error": None,  #means this snapshot completed without an exception.
-            }) 
+            })
         except (ProviderTimeout, TimeoutError):
             errors["timeout"] += 1
             results.append({"id": snap_id, "store": row["store"], "price_exact": False, "currency": False, "availability": False, "pack_size": False, "error": "timeout",})
@@ -134,7 +171,12 @@ def run(provider: Provider, snapshots_dir: str | Path, labels_path: str | Path, 
         "cost": {
             "input_tokens": total_input_tokens,
             "output_tokens": total_output_tokens,
-            "usd_estimate": None,
+            "usd_estimate": estimate_cost_usd(
+                provider.name,
+                getattr(provider, "model", "unknown"),
+                total_input_tokens,
+                total_output_tokens,
+            ),
         },
         "elapsed_s": round(time.time() - t0, 2),
         "per_store": per_store,
