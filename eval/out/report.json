@@ -20,7 +20,7 @@
   "cost": {
     "input_tokens": 16348,
     "output_tokens": 5279,
-    "usd_estimate": null
+    "usd_estimate": 0.00562
   },
   "elapsed_s": 122.2,
   "per_store": {
