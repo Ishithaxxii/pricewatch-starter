@@ -21,7 +21,7 @@ def test_increase_no_alert():
 
 
 def test_drop_pct_message_percentage():
-    # Regression test for the alert copy — keep in sync with rule_drop_pct.
+    # Regression test for the alert copy â€” keep in sync with rule_drop_pct.
     alerts = evaluate([obs(10000, "2026-09-01T00:00:00")], [obs(8000, "2026-09-02T00:00:00")], [{"type": "drop_pct", "pct": 10}])
     assert "20.0% drop" in alerts[0].message
 
@@ -149,20 +149,24 @@ def test_below_median_excludes_observations_outside_window():
     assert alerts == []
 
 
-def test_below_median_skips_currency_mismatch():
+
+def test_below_median_skips_currency_mismatch_and_adds_note():
     history = [
         obs(10000, "2026-10-01T00:00:00", currency="USD"),
         obs(12000, "2026-10-02T00:00:00", currency="USD"),
         obs(11000, "2026-10-03T00:00:00", currency="USD"),
     ]
+    current = obs(5000, "2026-10-04T00:00:00", currency="EUR")
 
     alerts = evaluate(
         history,
-        [obs(5000, "2026-10-04T00:00:00", currency="EUR")],
+        [current],
         [{"type": "below_median", "pct": 15, "window_days": 30}],
     )
 
     assert alerts == []
+    assert any("currency" in note.lower() for note in current.notes)
+
 
 
 def test_below_median_counts_multiple_observations_on_same_day():
@@ -206,3 +210,23 @@ def test_only_one_alert_per_product():
 
     assert len(alerts) == 1
     assert alerts[0].rule == "below_median"
+
+
+
+def test_below_median_uses_all_observations_not_daily_closes():
+    history = [
+        obs(10000, "2026-10-01T08:00:00"),
+        obs(10000, "2026-10-01T12:00:00"),
+        obs(10000, "2026-10-01T18:00:00"),
+        obs(20000, "2026-10-02T18:00:00"),
+        obs(20000, "2026-10-03T18:00:00"),
+    ]
+
+    alerts = evaluate(
+        history,
+        [obs(15000, "2026-10-04T00:00:00")],
+        [{"type": "below_median", "pct": 20, "window_days": 30}],
+    )
+
+    # All-observation median is 10000, so 15000 is not below the cutoff.
+    assert alerts == []

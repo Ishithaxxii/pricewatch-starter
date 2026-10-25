@@ -5,8 +5,8 @@ History is a list of observations ordered by `observed_at`. Rules come from aler
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta  #datetime-lets us interpret an observation's timestamp, timedelta — lets us calculate the beginning of a window,
-from statistics import median #median — calculates the middle value of historical prices.
+from datetime import datetime, timedelta  #datetime-lets us interpret an observation's timestamp, timedelta â€” lets us calculate the beginning of a window,
+from statistics import median #median â€” calculates the middle value of historical prices.
 from typing import Iterable
 
 from ..models import Alert, Observation
@@ -40,7 +40,7 @@ def rule_drop_pct(prev: Observation, cur: Observation, pct: float) -> Alert | No
     return None
 
 
-#adding the below median rule as function 
+#adding the below median rule as function
 def rule_below_median(
     prior: list[Observation],  #prior contains the observations already available for this product.
     cur: Observation,
@@ -50,13 +50,13 @@ def rule_below_median(
     """Alert when the current price is sufficiently below its recent median."""
     if cur.price_cents is None:
         return None
-    
+
     current_time = datetime.fromisoformat(cur.observed_at) #converts the timestamp string into a date/time object
     window_start = current_time - timedelta(days=window_days) # calculates the beginning of the 30-day lookback period.
-    
-    # Keep only observations inside the lookback window.
-    # For each calendar day, use the last valid price observation.
-    daily_closes: dict[str, Observation] = {}
+
+
+    # Use all valid observations in the trailing window.
+    window = []
 
     for obs in prior:
         observed_time = datetime.fromisoformat(obs.observed_at)
@@ -66,31 +66,25 @@ def rule_below_median(
         if obs.price_cents is None:
             continue
 
-        day = observed_time.date().isoformat()
-        previous_close = daily_closes.get(day)
+        window.append(obs)
 
-        if (
-            previous_close is None
-            or obs.observed_at > previous_close.observed_at
-        ):
-            daily_closes[day] = obs
-
-    window = list(daily_closes.values())
 
     if len(window) < 3:
         return None
 
-    
-    currencies = {obs.currency for obs in window}     #collects the currencies found in the historical window.
-    currencies.add(cur.currency)
 
-    if len(currencies) != 1:  # skip if the observation has more than 1 currency
+    currencies = {obs.currency for obs in window}
+
+    if any(currency != cur.currency for currency in currencies):
+        note = "below_median skipped: currency mismatch in trailing window"
+        if note not in cur.notes:
+            cur.notes.append(note)
         return None
 
     median_cents = int(round(median(obs.price_cents for obs in window)))
     threshold_price = median_cents * (1 - pct / 100)      #Calculate the cutoff or threshold value using cutoff = median * (1 - pct/100)
 
-    #Creating alert when threshold/cutoff is met 
+    #Creating alert when threshold/cutoff is met
     if cur.price_cents <= threshold_price:
         drop = (median_cents - cur.price_cents) / median_cents * 100
         return Alert(
@@ -125,7 +119,7 @@ def evaluate(history: list[Observation], new: list[Observation], rules: list[dic
         #         if a:
         #             alerts.append(a)
         #     # TODO(ISSUE-2): below_median rule
-       
+
         median_rules = [r for r in rules if r.get("type") == "below_median"]
         drop_rules = [r for r in rules if r.get("type") == "drop_pct"]
 

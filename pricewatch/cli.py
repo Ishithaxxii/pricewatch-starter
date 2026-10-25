@@ -37,11 +37,20 @@ def cmd_scan(a: argparse.Namespace) -> int:
 
 def cmd_extract(a: argparse.Namespace) -> int:
     cfg = config.load_stores(a.stores_file)
-    store = a.store or next((s for s in cfg["stores"] if f"/stores/{s}/" in a.url), None)
+    store = a.store or next(
+        (s for s in cfg["stores"] if f"/stores/{s}/" in a.url),
+        None,
+    )
+
     if store is None:
-        print("cannot infer --store from url", file=sys.stderr)
-        return 2
+        if a.llm:
+            from urllib.parse import urlparse
+            store = urlparse(a.url).hostname or "unknown"
+        else:
+            print("cannot infer --store from url", file=sys.stderr)
+            return 2
     client = Client()
+
     html = Path(a.html).read_text() if a.html else client.get(a.url).text
     if a.llm:
         from .agents.llm_extractor import extract_with_llm

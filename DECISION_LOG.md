@@ -1,7 +1,7 @@
 ﻿---
 # Machine-read by the autograder. Keep the keys; fill in the values.
 name: "Ishitha Sankarabhukta"
-median_basis: "daily_close"
+median_basis: "observations"
 levels_attempted: [1, 2]
 llm_provider: "openai"
 llm_model: "gpt-4o-mini"
@@ -20,11 +20,10 @@ hours_spent: 10
 
 ## Stage 2 — Below-median alerts
 
-- Used the latest valid price for each day to calculate the median, excluding the current observation.
-- Required at least three valid daily closing prices. Ignored missing prices and skipped alerts when currencies did not match.
-- Kept `below_median` as the higher-priority rule when both alert rules could apply, so each product gets at most one alert.
+- Calculated the median using all valid prior observations in the trailing time window, excluding the current observation. Required at least three valid observations and ignored observations with missing prices.
+- Skipped alerts when a currency mismatch occurred in the trailing window, adding a note to the current observation. Kept `below_median` as the higher-priority rule when both alert rules could apply, so each product gets at most one alert.
 - Added tests for history length, missing prices, thresholds, time windows, same-day observations, currency mismatches, and rule priority.
-- The full test suite passed: 24 tests.
+- The full test suite passed: 26 tests.
 
 ## Levels 3-5 - how you got in
 
