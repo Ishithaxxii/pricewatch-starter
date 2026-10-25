@@ -13,43 +13,65 @@ hours_spent: 10
 
 ## Stage 1 — False price-drop alerts
 
-- Fixed the drop percentage calculation to use the previous price as the baseline.
-- Added tests to check the percentage and make sure drops below the configured threshold do not trigger alerts.
-- Fixed Maple extraction to choose the sale price instead of the comparison price and handle European number formatting.
+- Corrected the price-drop percentage calculation to use the previous price as the baseline.
+
+- Added tests covering the percentage calculation and ensuring that price drops below the configured threshold do not trigger alerts.
+
+- Updated Maple extraction to select the sale price instead of the comparison price and handle European number formatting.
+
 - The focused watcher, Maple extractor, and normalizer tests passed (9 tests).
 
 ## Stage 2 — Below-median alerts
 
-- Calculated the median using all valid prior observations in the trailing time window, excluding the current observation. Required at least three valid observations and ignored observations with missing prices.
-- Skipped alerts when a currency mismatch occurred in the trailing window, adding a note to the current observation. Kept `below_median` as the higher-priority rule when both alert rules could apply, so each product gets at most one alert.
+- Calculated the median from valid prior observations in the trailing time window, excluding the current observation.
+
+- Required at least three valid historical observations and ignored observations with missing prices.
+
+- Suppressed alerts when currencies differed within the relevant history and recorded a note on the current observation.
+
+- Kept below_median as the higher-priority rule when both alert conditions could apply, ensuring at most one alert per product per evaluation.
+
 - Added tests for history length, missing prices, thresholds, time windows, same-day observations, currency mismatches, and rule priority.
-- The full test suite passed: 26 tests.
+
+- The full test suite passed (26 tests).
 
 ## Levels 3-5 - how you got in
 
-- Checked levels 1 and 2 against the mock store's grader-truth data. The scan returned 46 products, and all 22 products in the truth data matched by URL for the fields checked.
-- I have not fully verified levels 3–5 yet.
+- Verified Levels 1 and 2 against the available mock-store grader-truth data. The scan returned 46 products, and all 22 products in the truth data matched by URL for the fields checked.
+
+- Levels 3–5 have not been fully verified. Further work is needed to validate extraction behavior across the remaining stores.
 
 ## Stage 3 — LLM evaluation
 
-- Ran `gpt-4o-mini` on all 90 saved snapshots.
-- Accuracy was 57.8% for exact price, 85.6% for currency, 93.3% for availability, and 92.2% for pack size.
-- Exact price extraction was the main weakness, especially on Bazaario (35.6%).
-- The run had no timeouts, malformed outputs, or provider errors.
-- The report shows 0% baseline price accuracy, which I still need to check against the rule-based extractor. Token usage was recorded, but the USD cost estimate is not calculated yet.
-- `label_issues.json` is empty because I have not confirmed any mislabeled examples.
+- Evaluated gpt-4o-mini against 90 saved snapshots.
+
+- Recorded exact-price accuracy of 57.8%, currency accuracy of 85.6%, availability accuracy of 93.3%, and pack-size accuracy of 92.2%.
+
+- Exact-price extraction was the main weakness, particularly for Bazaario, where the recorded accuracy was 35.6%.
+
+- The recorded run reported no timeouts, malformed outputs, or provider errors.
+
+- The report showed 0% baseline price accuracy. This result still needs investigation against the rule-based extractor.
+
+- Token usage was recorded, but the USD cost estimate has not yet been calculated.
+
+- No suspected label issues have been confirmed, so label_issues.json remains empty pending further review.
 
 ## How I used AI
 
-I used ChatGPT and Claude to help debug issues, write tests, and build the evaluation harness.
-Sometimes their suggestions didn't fully match what the task required, so I had to review them and make changes. I ran the code and tests locally. The evaluation showed that exact price extraction still needs work, especially for Bazaario.
-
+I used ChatGPT and Claude to help debug issues, develop tests, and implement the evaluation harness. I reviewed the suggestions, adapted them to the task requirements, and ran the code and tests locally. Some suggestions did not fully match the assignment, so I had to revise them. The evaluation results showed that exact-price extraction remains the main weakness, especially for Bazaario.
 I had a few issues along the way, the LLMs deviated at few tasks.
 
 ## What I would improve next
 
-- Review incorrect price predictions and improve sale-price, localized-number, and pack-size extraction.
-- Check the baseline result and add a reliable cost estimate.
-- Review possible label issues against the original HTML.
-- Test extraction levels 3–5 and the watch command more thoroughly.
+- Inspect incorrect price predictions and improve sale-price selection, localized-number parsing, and pack-size extraction.
+
+- Validate the baseline price-accuracy calculation against the rule-based extractor.
+
+- Calculate the USD cost estimate from the recorded token usage.
+
+- Review suspected label issues against the original HTML before adding them to label_issues.json.
+
+- Test Levels 3–5 and the watch command more thoroughly.
+
 - Test the Anthropic provider with the grader's configured key and model.
