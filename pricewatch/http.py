@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import threading
 import time
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
+from bs4 import BeautifulSoup
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 PriceWatch/0.1",
@@ -30,6 +31,7 @@ class Client:
         self.retries = retries
         self._last: dict[str, float] = {}
         self._lock = threading.Lock()
+        self._assets_seen: set[str] = set()
 
     def _throttle(self, url: str) -> None:
         host = urlparse(url).netloc
@@ -63,3 +65,27 @@ class Client:
 
     def post(self, url: str, **kw) -> requests.Response:
         return self.request("POST", url, **kw)
+
+    def load_page_assets(self, html: str, page_url: str) -> None:
+        """Fetch the page's same-origin stylesheets and scripts once each, as a browser does.
+
+        Some stores stop showing prices to clients that never load a page's assets.
+        Each file is fetched once per client, through self.get, so throttling still applies.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        origin = urlparse(page_url).netloc
+        refs = [t["href"] for t in soup.find_all("link", href=True)
+                if "stylesheet" in (t.get("rel") or [])]
+        refs += [t["src"] for t in soup.find_all("script", src=True)]
+        for ref in refs:
+            url = urljoin(page_url, ref)
+            if urlparse(url).netloc != origin:  # never leave the store's own host
+                continue
+            with self._lock:
+                if url in self._assets_seen:
+                    continue
+                self._assets_seen.add(url)
+            try:
+                self.get(url)
+            except requests.RequestException:
+                pass  # an asset failing to load must not break the scan

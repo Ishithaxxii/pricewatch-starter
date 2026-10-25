@@ -25,13 +25,15 @@ def scan_store(client: Client, base_url: str, store: str, cfg: dict, workers: in
 
     def one(url: str) -> Observation:
         r = client.get(url)
+        if store == "zon":  # Zon hides prices from clients that don't load page assets
+            client.load_page_assets(r.text, url)
         obs = extractor.extract(client, store, cfg["adapter"], url, r.text)
         if r.status_code != 200:
             obs.notes.append(f"HTTP {r.status_code}")
         return obs
 
     out: list[Observation] = []
-    with ThreadPoolExecutor(max_workers=workers) as ex:
+    with ThreadPoolExecutor(max_workers=1 if store == "zon" else workers) as ex:        
         futs = {ex.submit(one, u): u for u in urls}
         for f in as_completed(futs):
             try:
@@ -42,7 +44,7 @@ def scan_store(client: Client, base_url: str, store: str, cfg: dict, workers: in
 
 
 def scan(cfg: dict, stores: list[str] | None = None, workers: int = 4) -> list[Observation]:
-    client = Client(min_interval=0.0)
+    client = Client(min_interval=1.0)
     targets = {k: v for k, v in cfg["stores"].items() if not stores or k in stores}
     out: list[Observation] = []
     with ThreadPoolExecutor(max_workers=len(targets) or 1) as ex:
