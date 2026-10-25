@@ -78,7 +78,7 @@ def run(provider: Provider, snapshots_dir: str | Path, labels_path: str | Path, 
                 "pack_size": obs.pack_size == exp["pack_size"],   #checks the number of items in the pack.
                 "error": None,  #means this snapshot completed without an exception.
             }) 
-        except ProviderTimeout:
+        except (ProviderTimeout, TimeoutError):
             errors["timeout"] += 1
             results.append({"id": snap_id, "store": row["store"], "price_exact": False, "currency": False, "availability": False, "pack_size": False, "error": "timeout",})
         except json.JSONDecodeError:
